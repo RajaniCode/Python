@@ -1,0 +1,227 @@
+Difference between @staticmethod and @classmethod in Python
+
+Maybe a bit of example code will help: Notice the difference in the call signatures of foo, class_foo and static_foo:
+
+class A(object):
+    def foo(self,x):
+        print "executing foo(%s,%s)"%(self,x)
+
+    @classmethod
+    def class_foo(cls,x):
+        print "executing class_foo(%s,%s)"%(cls,x)
+
+    @staticmethod
+    def static_foo(x):
+        print "executing static_foo(%s)"%x    
+
+a=A()
+Below is the usual way an object instance calls a method. The object instance, a, is implicitly passed as the first argument.
+
+a.foo(1)
+# executing foo(<__main__.A object at 0xb7dbef0c>,1)
+With classmethods, the class of the object instance is implicitly passed as the first argument instead of self.
+
+a.class_foo(1)
+# executing class_foo(<class '__main__.A'>,1)
+You can also call class_foo using the class. In fact, if you define something to be a classmethod, it is probably because you intend to call it from the class rather than from a class instance. A.foo(1) would have raised a TypeError, but A.class_foo(1) works just fine:
+
+A.class_foo(1)
+# executing class_foo(<class '__main__.A'>,1)
+One use people have found for class methods is to create inheritable alternative constructors
+
+With staticmethods, neither self (the object instance) nor  cls (the class) is implicitly passed as the first argument. They behave like plain functions except that you can call them from an instance or the class:
+
+a.static_foo(1)
+# executing static_foo(1)
+
+A.static_foo('hi')
+# executing static_foo(hi)
+Staticmethods are used to group functions which have some logical connection with a class to the class.
+
+foo is just a function, but when you call a.foo you don't just get the function, you get a "partially applied" version of the function with the object instance a bound as the first argument to the function. foo expects 2 arguments, while a.foo only expects 1 argument.
+
+a is bound to foo. That is what is meant by the term "bound" below:
+
+print(a.foo)
+# <bound method A.foo of <__main__.A object at 0xb7d52f0c>>
+With a.class_foo, a is not bound to class_foo, rather the class A is bound to class_foo.
+
+print(a.class_foo)
+# <bound method type.class_foo of <class '__main__.A'>>
+Here, with a staticmethod, even though it is a method, a.static_foo just returns a good 'ole function with no arguments bound. static_foo expects 1 argument, and a.static_foo expects 1 argument too.
+
+print(a.static_foo)
+# <function static_foo at 0xb7d479cc>
+And of course the same thing happens when you call static_foo with the class A instead.
+
+print(A.static_foo)
+# <function static_foo at 0xb7d479cc>
+
+
+classmethod is a descriptor, wrapping a function, and you can call the resulting object on a class or (equivalently) an instance thereof:
+
+>>> class x(object):
+...   def c1(*args): print 'c1', args
+...   c1 = classmethod(c1)
+...   @classmethod
+...   def c2(*args): print 'c2', args
+... 
+>>> inst = x()
+>>> x.c1()
+c1 (<class '__main__.x'>,)
+>>> x.c2()
+c2 (<class '__main__.x'>,)
+>>> inst.c1()
+c1 (<class '__main__.x'>,)
+>>> inst.c2()
+c2 (<class '__main__.x'>,)
+
+As you see, whether you define it directly or with decorator syntax, and whether you call it on the class or the instance, the classmethod always receives the class as its first argument.
+
+One of the main uses of classmethod is to define "alternative constructors":
+
+>>> class y(object):
+...   def __init__(self, astring):
+...     self.s = astring
+...   @classmethod
+...   def fromlist(cls, alist):
+...     x = cls('')
+...     x.s = ','.join(str(s) for s in alist)
+...     return x
+...   def __repr__(self):
+...     return 'y(%r)' % self.s
+...
+>>> y1 = y('xx')
+>>> y1
+y('xx')
+>>> y2 = y.fromlist(range(3))
+>>> y2
+y('0,1,2')
+
+Now if you subclass y, the classmethod keeps working, e.g.:
+
+>>> class k(y):
+...   def __repr__(self):
+...     return 'k(%r)' % self.s.upper()
+...
+>>> k1 = k.fromlist(['za','bu'])
+>>> k1
+k('ZA,BU')
+
+
+Instance methods
+
+When creating an instance method, the first parameter is always self. You can name it anything you want, but the meaning will always be the same, and you should use self since it's the naming convention. self is (usually) passed hiddenly when calling an instance method; it represents the instance calling the method.
+
+Here's an example of a class called Inst that has an instance method called introduce():
+
+class Inst:
+
+    def __init__(self, name):
+        self.name = name
+
+    def introduce(self):
+        print("Hello, I am %s, and my name is " %(self, self.name))
+
+Now to call this method, we first need to create an instance of our class. Once we have an instance, we can call introduce() on it, and the instance will automatically be passed as self:
+
+myinst = Inst("Test Instance")
+otherinst = Inst("An other instance")
+myinst.introduce()
+# outputs: Hello, I am <Inst object at x>, and my name is Test Instance
+otherinst.introduce()
+# outputs: Hello, I am <Inst object at y>, and my name is An other instance
+As you see, we're not passing the parameter self, it get's hiddenly passed with the period operator; we're calling Inst class's instance method introduce, with the parameter of myinst or otherinst. This means that we can call Inst.introduce(myinst) and get the exact same result.
+
+Class methods
+
+The idea of class method is very similar to instance method, only difference being that instead of passing the instance hiddenly as a first parameter, we're now passing the class itself as a first parameter.
+
+class Cls:
+
+    @classmethod
+    def introduce(cls):
+        print("Hello, I am %s!" %cls)
+Since we're passing only a class to the method, no instance is involved. This means that we don't need an instance at all, we call the class method as if it was a static function:
+
+ Cls.introduce() # same as Cls.introduce(Cls)
+ # outputs: Hello, I am <class 'Cls'>
+Notice that again Cls is passed hiddenly, so we could also say Cls.introduce(Inst) and get output "Hello, I am <class 'Inst'>. This is particularly useful when we're inheriting a class from Cls:
+
+class SubCls(Cls):
+    pass
+
+SubCls.introduce()
+# outputs: Hello, I am <class 'SubCls'>
+
+
+Though classmethod and staticmethod are quite similar, there's a slight difference in usage for both entities: classmethod must have a reference to a class object as the first parameter, whereas staticmethod can have no parameters at all.
+
+Let's look at all that was said in real examples.
+
+Boilerplate
+
+Let's assume an example of a class, dealing with date information (this is what will be our boilerplate to cook on):
+
+class Date(object):
+
+    day = 0
+    month = 0
+    year = 0
+
+    def __init__(self, day=0, month=0, year=0):
+        self.day = day
+        self.month = month
+        self.year = year
+This class obviously could be used to store information about certain dates (without timezone information; let's assume all dates are presented in UTC).
+
+Here we have __init__, a typical initializer of Python class instances, which receives arguments as a typical instancemethod, having the first non-optional argument (self) that holds reference to a newly created instance.
+
+Class Method
+
+We have some tasks that can be nicely done using classmethods.
+
+Let's assume that we want to create a lot of Date class instances having date information coming from outer source encoded as a string of next format ('dd-mm-yyyy'). We have to do that in different places of our source code in project.
+
+So what we must do here is:
+
+Parse a string to receive day, month and year as three integer variables or a 3-item tuple consisting of that variable.
+Instantiate Date by passing those values to initialization call.
+This will look like:
+
+day, month, year = map(int, string_date.split('-'))
+date1 = Date(day, month, year)
+For this purpose, C++ has such feature as overloading, but Python lacks that feature- so here's when classmethod applies. Lets create another "constructor".
+
+    @classmethod
+    def from_string(cls, date_as_string):
+        day, month, year = map(int, date_as_string.split('-'))
+        date1 = cls(day, month, year)
+        return date1
+
+date2 = Date.from_string('11-09-2012')
+Let's look more carefully at the above implementation, and review what advantages we have here:
+
+We've implemented date string parsing in one place and it's reusable now.
+Encapsulation works fine here (if you think that you could implement string parsing as a single function elsewhere, this solution fits OOP paradigm far better).
+cls is an object that holds class itself, not an instance of the class. It's pretty cool because if we inherit our Date class, all children will have from_string defined also.
+
+Static method
+
+What about staticmethod? It's pretty similar to classmethod but doesn't take any obligatory parameters (like a class method or instance method does).
+
+Let's look at the next use case.
+
+We have a date string that we want to validate somehow. This task is also logically bound to Date class we've used so far, but still doesn't require instantiation of it.
+
+Here is where staticmethod can be useful. Let's look at the next piece of code:
+
+    @staticmethod
+    def is_date_valid(date_as_string):
+        day, month, year = map(int, date_as_string.split('-'))
+        return day <= 31 and month <= 12 and year <= 3999
+
+    # usage:
+    is_date = Date.is_date_valid('11-09-2012')
+
+So, as we can see from usage of staticmethod, we don't have any access to what the class is- it's basically just a function, called syntactically like a method, but without access to the object and it's internals (fields and another methods), while classmethod does.
